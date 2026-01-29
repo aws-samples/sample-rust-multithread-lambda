@@ -1,59 +1,63 @@
 # Contributing Guidelines
 
-Thank you for your interest in contributing to our project. Whether it's a bug report, new feature, correction, or additional
-documentation, we greatly value feedback and contributions from our community.
+Thank you for your interest in contributing to this project!
 
-Please read through this document before submitting any issues or pull requests to ensure we have all the necessary
-information to effectively respond to your bug report or contribution.
+## How to Contribute
 
+We welcome contributions in the form of:
+- Bug reports and feature requests via GitHub Issues
+- Code contributions via Pull Requests
+- Documentation improvements
+- Performance benchmarks and test results
 
-## Reporting Bugs/Feature Requests
+## Getting Started
 
-We welcome you to use the GitHub issue tracker to report bugs or suggest features.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature-name`)
+3. Make your changes
+4. Test your changes thoroughly
+5. Commit your changes with clear, descriptive messages
+6. Push to your fork
+7. Submit a Pull Request
 
-When filing an issue, please check existing open, or recently closed, issues to make sure somebody else hasn't already
-reported the issue. Please try to include as much information as you can. Details like these are incredibly useful:
+## Code Standards
 
-* A reproducible test case or series of steps
-* The version of our code being used
-* Any modifications you've made relevant to the bug
-* Anything unusual about your environment or deployment
+- Follow Rust best practices and idiomatic patterns
+- Run `cargo fmt` before committing
+- Run `cargo clippy` and address any warnings
+- Ensure all tests pass with `cargo test`
+- Add tests for new functionality
+- Update documentation as needed
 
+## Testing
 
-## Contributing via Pull Requests
-Contributions via pull requests are much appreciated. Before sending us a pull request, please ensure that:
+Before submitting a PR:
+- Build for both ARM64 and x86_64 architectures
+- Run the validation test script: `./scripts/validation_test.sh`
+- Verify your changes don't introduce performance regressions
 
-1. You are working against the latest source on the *main* branch.
-2. You check existing open, and recently merged, pull requests to make sure someone else hasn't addressed the problem already.
-3. You open an issue to discuss any significant work - we would hate for your time to be wasted.
+## Pull Request Process
 
-To send us a pull request, please:
+1. Update the README.md with details of changes if applicable
+2. Ensure your code follows the existing style
+3. Include relevant test results or benchmarks
+4. Your PR will be reviewed by maintainers
+5. Address any feedback or requested changes
+6. Once approved, your PR will be merged
 
-1. Fork the repository.
-2. Modify the source; please focus on the specific change you are contributing. If you also reformat all the code, it will be hard for us to focus on your change.
-3. Ensure local tests pass.
-4. Commit to your fork using clear commit messages.
-5. Send us a pull request, answering any default questions in the pull request interface.
-6. Pay attention to any automated CI failures reported in the pull request, and stay involved in the conversation.
+## Reporting Bugs
 
-GitHub provides additional document on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
-[creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
+When reporting bugs, please include:
+- A clear description of the issue
+- Steps to reproduce
+- Expected vs actual behavior
+- Environment details (architecture, memory configuration, etc.)
+- Any relevant logs or error messages
 
+## Questions?
 
-## Finding contributions to work on
-Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wontfix), looking at any 'help wanted' issues is a great place to start.
-
+If you have questions about contributing, please open an issue with the "question" label.
 
 ## Code of Conduct
-This project has adopted the [Amazon Open Source Code of Conduct](https://aws.github.io/code-of-conduct).
-For more information see the [Code of Conduct FAQ](https://aws.github.io/code-of-conduct-faq) or contact
-opensource-codeofconduct@amazon.com with any additional questions or comments.
 
-
-## Security issue notifications
-If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.
-
-
-## Licensing
-
-See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
+This project adheres to the [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.

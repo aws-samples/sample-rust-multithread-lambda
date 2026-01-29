@@ -1,0 +1,501 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Rust Multi-threaded Lambda Benchmark Stack
+
+# IMPORTANT: Build both architectures before deploying:
+#   cargo lambda build --release --arm64 --output-format zip
+#   mv target/lambda/rust-multithread-lambda target/lambda/rust-multithread-lambda-arm64
+#   cargo lambda build --release --x86-64 --output-format zip
+#   mv target/lambda/rust-multithread-lambda target/lambda/rust-multithread-lambda-x86
+
+Parameters:
+  EnableVPC:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: Enable VPC configuration for Lambda functions (adds latency, not needed for compute benchmarks)
+  
+  VpcSubnetIds:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma-separated list of VPC subnet IDs (required if EnableVPC is true)
+  
+  VpcSecurityGroupIds:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Comma-separated list of VPC security group IDs (required if EnableVPC is true)
+
+Conditions:
+  UseVPC: !Equals [!Ref EnableVPC, "true"]
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: provided.al2023
+    Handler: bootstrap
+    ReservedConcurrentExecutions: 10
+
+Resources:
+  # KMS Key for encrypting Lambda environment variables
+  LambdaEnvEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for encrypting Lambda environment variables
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow Lambda Service
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: '*'
+      Tags:
+        - Key: Purpose
+          Value: lambda-env-encryption
+
+  LambdaEnvEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/rust-benchmark-lambda-env
+      TargetKeyId: !Ref LambdaEnvEncryptionKey
+
+  # SQS Dead Letter Queue for failed Lambda invocations
+  LambdaDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: rust-benchmark-lambda-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      KmsMasterKeyId: !Ref LambdaEnvEncryptionKey
+      Tags:
+        - Key: Purpose
+          Value: lambda-dlq
+
+  # IAM Policy for DLQ access
+  LambdaDLQPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt LambdaDeadLetterQueue.Arn
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:rust-bench-*'
+      Queues:
+        - !Ref LambdaDeadLetterQueue
+
+  # ARM64 (Graviton2) Functions
+  # CodeUri points to architecture-specific build output
+
+  # 1 vCPU Configuration (1536 MB) - ARM64
+  RustBenchmark1vCPUArm:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-arm64-1vcpu-1536mb
+      MemorySize: 1536
+      CodeUri: target/lambda/rust-multithread-lambda-arm64/
+      Architectures:
+        - arm64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 1
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 1vcpu-arm64
+        Architecture: arm64
+
+  # 2 vCPU Configuration (2048 MB) - ARM64
+  RustBenchmark2vCPUArm:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-arm64-2vcpu-2048mb
+      MemorySize: 2048
+      CodeUri: target/lambda/rust-multithread-lambda-arm64/
+      Architectures:
+        - arm64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 2
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 2vcpu-arm64
+        Architecture: arm64
+
+  # 3 vCPU Configuration (4096 MB) - ARM64
+  RustBenchmark3vCPUArm:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-arm64-3vcpu-4096mb
+      MemorySize: 4096
+      CodeUri: target/lambda/rust-multithread-lambda-arm64/
+      Architectures:
+        - arm64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 3
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 3vcpu-arm64
+        Architecture: arm64
+
+  # 4 vCPU Configuration (6144 MB) - ARM64
+  RustBenchmark4vCPUArm:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-arm64-4vcpu-6144mb
+      MemorySize: 6144
+      CodeUri: target/lambda/rust-multithread-lambda-arm64/
+      Architectures:
+        - arm64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 4
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 4vcpu-arm64
+        Architecture: arm64
+
+  # 5 vCPU Configuration (8192 MB) - ARM64
+  RustBenchmark5vCPUArm:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-arm64-5vcpu-8192mb
+      MemorySize: 8192
+      CodeUri: target/lambda/rust-multithread-lambda-arm64/
+      Architectures:
+        - arm64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 5
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 5vcpu-arm64
+        Architecture: arm64
+
+  # 6 vCPU Configuration (10240 MB) - ARM64
+  RustBenchmark6vCPUArm:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-arm64-6vcpu-10240mb
+      MemorySize: 10240
+      CodeUri: target/lambda/rust-multithread-lambda-arm64/
+      Architectures:
+        - arm64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 6
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 6vcpu-arm64
+        Architecture: arm64
+
+  # x86_64 Functions
+  # CodeUri points to architecture-specific build output
+
+  # 1 vCPU Configuration (1536 MB) - x86_64
+  RustBenchmark1vCPUx86:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-x86-1vcpu-1536mb
+      MemorySize: 1536
+      CodeUri: target/lambda/rust-multithread-lambda-x86/
+      Architectures:
+        - x86_64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 1
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 1vcpu-x86
+        Architecture: x86_64
+
+  # 2 vCPU Configuration (2048 MB) - x86_64
+  RustBenchmark2vCPUx86:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-x86-2vcpu-2048mb
+      MemorySize: 2048
+      CodeUri: target/lambda/rust-multithread-lambda-x86/
+      Architectures:
+        - x86_64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 2
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 2vcpu-x86
+        Architecture: x86_64
+
+  # 3 vCPU Configuration (4096 MB) - x86_64
+  RustBenchmark3vCPUx86:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-x86-3vcpu-4096mb
+      MemorySize: 4096
+      CodeUri: target/lambda/rust-multithread-lambda-x86/
+      Architectures:
+        - x86_64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 3
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 3vcpu-x86
+        Architecture: x86_64
+
+  # 4 vCPU Configuration (6144 MB) - x86_64
+  RustBenchmark4vCPUx86:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-x86-4vcpu-6144mb
+      MemorySize: 6144
+      CodeUri: target/lambda/rust-multithread-lambda-x86/
+      Architectures:
+        - x86_64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 4
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 4vcpu-x86
+        Architecture: x86_64
+
+  # 5 vCPU Configuration (8192 MB) - x86_64
+  RustBenchmark5vCPUx86:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-x86-5vcpu-8192mb
+      MemorySize: 8192
+      CodeUri: target/lambda/rust-multithread-lambda-x86/
+      Architectures:
+        - x86_64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 5
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 5vcpu-x86
+        Architecture: x86_64
+
+  # 6 vCPU Configuration (10240 MB) - x86_64
+  RustBenchmark6vCPUx86:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rust-bench-x86-6vcpu-10240mb
+      MemorySize: 10240
+      CodeUri: target/lambda/rust-multithread-lambda-x86/
+      Architectures:
+        - x86_64
+      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          WORKER_COUNT: 6
+          RUST_LOG: info
+      Tags:
+        Purpose: benchmark
+        Config: 6vcpu-x86
+        Architecture: x86_64
+
+Outputs:
+  # Security Resources
+  KmsKeyArn:
+    Description: KMS Key ARN for Lambda environment encryption
+    Value: !GetAtt LambdaEnvEncryptionKey.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-KmsKeyArn'
+
+  DeadLetterQueueArn:
+    Description: SQS Dead Letter Queue ARN
+    Value: !GetAtt LambdaDeadLetterQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DLQArn'
+
+  DeadLetterQueueUrl:
+    Description: SQS Dead Letter Queue URL
+    Value: !Ref LambdaDeadLetterQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-DLQUrl'
+
+  # ARM64 Outputs
+  Function1vCPUArm:
+    Description: 1 vCPU ARM64 function ARN
+    Value: !GetAtt RustBenchmark1vCPUArm.Arn
+  
+  Function2vCPUArm:
+    Description: 2 vCPU ARM64 function ARN
+    Value: !GetAtt RustBenchmark2vCPUArm.Arn
+  
+  Function3vCPUArm:
+    Description: 3 vCPU ARM64 function ARN
+    Value: !GetAtt RustBenchmark3vCPUArm.Arn
+  
+  Function4vCPUArm:
+    Description: 4 vCPU ARM64 function ARN
+    Value: !GetAtt RustBenchmark4vCPUArm.Arn
+  
+  Function5vCPUArm:
+    Description: 5 vCPU ARM64 function ARN
+    Value: !GetAtt RustBenchmark5vCPUArm.Arn
+  
+  Function6vCPUArm:
+    Description: 6 vCPU ARM64 function ARN
+    Value: !GetAtt RustBenchmark6vCPUArm.Arn
+
+  # x86_64 Outputs
+  Function1vCPUx86:
+    Description: 1 vCPU x86_64 function ARN
+    Value: !GetAtt RustBenchmark1vCPUx86.Arn
+  
+  Function2vCPUx86:
+    Description: 2 vCPU x86_64 function ARN
+    Value: !GetAtt RustBenchmark2vCPUx86.Arn
+  
+  Function3vCPUx86:
+    Description: 3 vCPU x86_64 function ARN
+    Value: !GetAtt RustBenchmark3vCPUx86.Arn
+  
+  Function4vCPUx86:
+    Description: 4 vCPU x86_64 function ARN
+    Value: !GetAtt RustBenchmark4vCPUx86.Arn
+  
+  Function5vCPUx86:
+    Description: 5 vCPU x86_64 function ARN
+    Value: !GetAtt RustBenchmark5vCPUx86.Arn
+  
+  Function6vCPUx86:
+    Description: 6 vCPU x86_64 function ARN
+    Value: !GetAtt RustBenchmark6vCPUx86.Arn
