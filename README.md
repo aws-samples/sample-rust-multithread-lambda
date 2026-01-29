@@ -411,10 +411,6 @@ aws cloudformation delete-stack --stack-name rust-multithread-benchmark
 - [Rayon Data Parallelism](https://docs.rs/rayon/latest/rayon/)
 - [AWS Lambda Configuration](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html)
 
-## Repository
-
-[GitLab Repository](https://ssh.gitlab.aws.dev/daniabib/rust-multithread-lambda)
-
 ## Conclusion
 
 This project demonstrates that multi-threaded processing in AWS Lambda is not only possible but highly effective for CPU-bound workloads. Key takeaways:

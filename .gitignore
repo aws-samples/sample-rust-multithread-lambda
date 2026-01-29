@@ -1,0 +1,40 @@
+# Rust
+target/
+Cargo.lock
+*.rs.bk
+
+# Lambda test artifacts
+*.json
+!rust-multithread-lambda/Cargo.lock
+test-results/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs
+.vscode/
+.idea/
+.claude/
+.amazonq/
+*.swp
+*.swo
+*~
+
+# AWS
+.aws-sam/
+samconfig.toml
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+
+# Blog content
+*BLOG*.md
+*BLOG*.docx
+DRAFT*.md
+DRAFT*.docx
