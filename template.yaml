@@ -8,28 +8,6 @@ Description: Rust Multi-threaded Lambda Benchmark Stack
 #   cargo lambda build --release --x86-64 --output-format zip
 #   mv target/lambda/rust-multithread-lambda target/lambda/rust-multithread-lambda-x86
 
-Parameters:
-  EnableVPC:
-    Type: String
-    Default: "false"
-    AllowedValues:
-      - "true"
-      - "false"
-    Description: Enable VPC configuration for Lambda functions (adds latency, not needed for compute benchmarks)
-  
-  VpcSubnetIds:
-    Type: CommaDelimitedList
-    Default: ""
-    Description: Comma-separated list of VPC subnet IDs (required if EnableVPC is true)
-  
-  VpcSecurityGroupIds:
-    Type: CommaDelimitedList
-    Default: ""
-    Description: Comma-separated list of VPC security group IDs (required if EnableVPC is true)
-
-Conditions:
-  UseVPC: !Equals [!Ref EnableVPC, "true"]
-
 Globals:
   Function:
     Timeout: 30
@@ -38,70 +16,7 @@ Globals:
     ReservedConcurrentExecutions: 10
 
 Resources:
-  # KMS Key for encrypting Lambda environment variables
-  LambdaEnvEncryptionKey:
-    Type: AWS::KMS::Key
-    Properties:
-      Description: KMS key for encrypting Lambda environment variables
-      EnableKeyRotation: true
-      KeyPolicy:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: Enable IAM User Permissions
-            Effect: Allow
-            Principal:
-              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
-            Action: 'kms:*'
-            Resource: '*'
-          - Sid: Allow Lambda Service
-            Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action:
-              - kms:Decrypt
-              - kms:GenerateDataKey*
-            Resource: '*'
-      Tags:
-        - Key: Purpose
-          Value: lambda-env-encryption
-
-  LambdaEnvEncryptionKeyAlias:
-    Type: AWS::KMS::Alias
-    Properties:
-      AliasName: alias/rust-benchmark-lambda-env
-      TargetKeyId: !Ref LambdaEnvEncryptionKey
-
-  # SQS Dead Letter Queue for failed Lambda invocations
-  LambdaDeadLetterQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: rust-benchmark-lambda-dlq
-      MessageRetentionPeriod: 1209600  # 14 days
-      KmsMasterKeyId: !Ref LambdaEnvEncryptionKey
-      Tags:
-        - Key: Purpose
-          Value: lambda-dlq
-
-  # IAM Policy for DLQ access
-  LambdaDLQPolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sqs:SendMessage
-            Resource: !GetAtt LambdaDeadLetterQueue.Arn
-            Condition:
-              ArnLike:
-                aws:SourceArn: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:rust-bench-*'
-      Queues:
-        - !Ref LambdaDeadLetterQueue
-
   # ARM64 (Graviton2) Functions
-  # CodeUri points to architecture-specific build output
 
   # 1 vCPU Configuration (1536 MB) - ARM64
   RustBenchmark1vCPUArm:
@@ -112,15 +27,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-arm64/
       Architectures:
         - arm64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 1
@@ -139,15 +45,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-arm64/
       Architectures:
         - arm64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 2
@@ -166,15 +63,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-arm64/
       Architectures:
         - arm64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 3
@@ -193,15 +81,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-arm64/
       Architectures:
         - arm64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 4
@@ -220,15 +99,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-arm64/
       Architectures:
         - arm64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 5
@@ -247,15 +117,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-arm64/
       Architectures:
         - arm64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 6
@@ -266,7 +127,6 @@ Resources:
         Architecture: arm64
 
   # x86_64 Functions
-  # CodeUri points to architecture-specific build output
 
   # 1 vCPU Configuration (1536 MB) - x86_64
   RustBenchmark1vCPUx86:
@@ -277,15 +137,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-x86/
       Architectures:
         - x86_64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 1
@@ -304,15 +155,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-x86/
       Architectures:
         - x86_64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 2
@@ -331,15 +173,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-x86/
       Architectures:
         - x86_64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 3
@@ -358,15 +191,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-x86/
       Architectures:
         - x86_64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 4
@@ -385,15 +209,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-x86/
       Architectures:
         - x86_64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 5
@@ -412,15 +227,6 @@ Resources:
       CodeUri: target/lambda/rust-multithread-lambda-x86/
       Architectures:
         - x86_64
-      KmsKeyArn: !GetAtt LambdaEnvEncryptionKey.Arn
-      DeadLetterQueue:
-        Type: SQS
-        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
-      VpcConfig: !If
-        - UseVPC
-        - SubnetIds: !Ref VpcSubnetIds
-          SecurityGroupIds: !Ref VpcSecurityGroupIds
-        - !Ref AWS::NoValue
       Environment:
         Variables:
           WORKER_COUNT: 6
@@ -431,25 +237,6 @@ Resources:
         Architecture: x86_64
 
 Outputs:
-  # Security Resources
-  KmsKeyArn:
-    Description: KMS Key ARN for Lambda environment encryption
-    Value: !GetAtt LambdaEnvEncryptionKey.Arn
-    Export:
-      Name: !Sub '${AWS::StackName}-KmsKeyArn'
-
-  DeadLetterQueueArn:
-    Description: SQS Dead Letter Queue ARN
-    Value: !GetAtt LambdaDeadLetterQueue.Arn
-    Export:
-      Name: !Sub '${AWS::StackName}-DLQArn'
-
-  DeadLetterQueueUrl:
-    Description: SQS Dead Letter Queue URL
-    Value: !Ref LambdaDeadLetterQueue
-    Export:
-      Name: !Sub '${AWS::StackName}-DLQUrl'
-
   # ARM64 Outputs
   Function1vCPUArm:
     Description: 1 vCPU ARM64 function ARN
